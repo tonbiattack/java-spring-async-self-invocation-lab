@@ -15,9 +15,12 @@ class OrderServiceTest {
     @Autowired
     private OrderService orderService;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @BeforeEach
     void clearObservation() {
-        orderService.clearLastNotificationThread();
+        notificationService.clearLastNotificationThread();
     }
 
     @Test
@@ -27,9 +30,10 @@ class OrderServiceTest {
         String result = orderService.confirm("order-1");
 
         assertEquals("confirmed:order-1", result);
-        assertTrue(orderService.lastNotificationThread().startsWith("notification-"),
+        waitUntilNotificationIsObserved();
+        assertTrue(notificationService.lastNotificationThread().startsWith("notification-"),
                 "通知はExecutorスレッドで実行されるべき");
-        assertTrue(!orderService.lastNotificationThread().equals(callerThread),
+        assertTrue(!notificationService.lastNotificationThread().equals(callerThread),
                 "通知は呼び出しスレッドで同期実行されるべきではない");
     }
 
@@ -37,20 +41,20 @@ class OrderServiceTest {
     void directProxyCall_runsOnNotificationExecutor() {
         String callerThread = Thread.currentThread().getName();
 
-        orderService.sendNotification("order-2");
+        notificationService.sendNotification("order-2");
 
         waitUntilNotificationIsObserved();
-        assertTrue(orderService.lastNotificationThread().startsWith("notification-"));
-        assertTrue(!orderService.lastNotificationThread().equals(callerThread));
+        assertTrue(notificationService.lastNotificationThread().startsWith("notification-"));
+        assertTrue(!notificationService.lastNotificationThread().equals(callerThread));
     }
 
     private void waitUntilNotificationIsObserved() {
         long deadline = System.nanoTime() + Duration.ofSeconds(1).toNanos();
-        while (orderService.lastNotificationThread() == null
+        while (notificationService.lastNotificationThread() == null
                 && System.nanoTime() < deadline) {
             Thread.onSpinWait();
         }
-        assertTrue(orderService.lastNotificationThread() != null,
+        assertTrue(notificationService.lastNotificationThread() != null,
                 "非同期通知が制限時間内に観測できなかった");
     }
 }
